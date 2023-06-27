@@ -28,9 +28,6 @@
 ✔ Proxyless
 ✔ good config
 ```
----
-
-
 
 ---
 
