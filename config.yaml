@@ -1,0 +1,12 @@
+threads: 100 # threads for checking
+
+minimum_members : 100
+minimum_online : 140
+maximum_members : 750000
+minimum_boosts : 0
+minimum_servers: 80
+
+good_token_max_bad_amount: 30
+medium_token_max_bad_amount: 40
+
+full_check: true # it checks the minimum boosts as well but it uses way more requests
