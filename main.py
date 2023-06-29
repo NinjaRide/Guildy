@@ -18,7 +18,9 @@ def cpm_counter():
         data['cpm'] = (after-previous) * 60
 
 def update_title():
-    os.system('title GUILDY By NinjaRide - Checked: [%s] - Left: [%s] - GOOD: [%s] - BAD: [%s] - UHQ: [%s]- MQ: [%s] - LQ: [%s]- Guilds: [%s]- CPM: [%s] ' % (data['checked'],len(tokens),data['valid'],data["invalid"],data['uhq'],data['mq'],data['lq'],data['guilds'], data['cpm']))
+    os.system(
+        f"""title GUILDY By NinjaRide - Checked: [{data['checked']}] - Left: [{len(tokens)}] - GOOD: [{data['valid']}] - BAD: [{data["invalid"]}] - UHQ: [{data['uhq']}]- MQ: [{data['mq']}] - LQ: [{data['lq']}]- Guilds: [{data['guilds']}]- CPM: [{data['cpm']}] """
+    )
     threading.Timer(.1,update_title).start()  
 
 def tprint(text: str):
@@ -63,12 +65,15 @@ def check_token(token):
     bad_guilds = []
     all_guilds = []
 
-    session = tls_client.Session(client_identifier="chrome_103")  
+    session = tls_client.Session(client_identifier="chrome_103")
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36", 'authorization': f"{token}"}
 
 
-    guilds = session.get(f'https://discord.com/api/v9/users/@me/guilds?with_counts=true', headers=headers).json()
-    
+    guilds = session.get(
+        'https://discord.com/api/v9/users/@me/guilds?with_counts=true',
+        headers=headers,
+    ).json()
+
     if '401: unauthorized' in str(guilds).lower():
        return None, None, None
 
@@ -80,18 +85,16 @@ def check_token(token):
 
     if total_guilds < config['minimum_servers']:
 
-        for guild in guilds:
-            all_guilds.append(guild['id'])
-
+        all_guilds.extend(guild['id'] for guild in guilds)
         data['checked'] += 1
         return bad_guilds,total_guilds,all_guilds
-    
+
     for guild in guilds:
 
         all_guilds.append(guild['id'])
-        
+
         bad_guild = False
-        
+
         if int(guild['approximate_member_count']) < config['minimum_members']:
            bad_guild = True
 
@@ -102,22 +105,22 @@ def check_token(token):
            bad_guild = True
 
         if config['full_check'] and not bad_guild and config['minimum_boosts'] != 0:
-           
+
             boost_amount = session.get(f'https://discord.com/api/v9/guilds/{guild["id"]}', headers=headers).json()['premium_subscription_count']
 
             if boost_amount < config['minimum_boosts']:
                bad_guild = True
 
-    
+
         if bad_guild:
             bad_guilds.append(guild["id"])
             data['invalid'] += 1
-        
+
         else:
             data['valid'] += 1
 
 
-    
+
     data['checked'] += 1
 
     return bad_guilds,total_guilds,all_guilds
@@ -125,10 +128,10 @@ def check_token(token):
 def worker():
     while True:
         with locker:
-            if not len(tokens) == 0:
+            if len(tokens) != 0:
                 token = tokens.pop(0)
             else:
-               return
+                return
 
         bad_guilds,total_guilds,all_guilds = check_token(token)      
 
@@ -155,15 +158,13 @@ def worker():
                 tprint(f"{Fore.LIGHTWHITE_EX}[{Fore.RED}-{Fore.LIGHTWHITE_EX}] LQ  {f'[{Fore.LIGHTRED_EX}{token}{Fore.LIGHTWHITE_EX}]':85} -> Good Guilds: [{Fore.LIGHTRED_EX}{total_guilds - len(bad_guilds)}/{total_guilds}{Fore.LIGHTWHITE_EX}]")         
                 open("output/lq.txt","a", encoding='utf-8').write(f"{token}\n")
                 data['lq'] += 1
+        elif total_guilds == "verify":
+            tprint(f"{Fore.LIGHTWHITE_EX}[{Fore.RED}!{Fore.LIGHTWHITE_EX}] Unverified [{Fore.RED}{token}{Fore.LIGHTWHITE_EX}]")               
+            open("output/verify.txt","a", encoding='utf-8').write(f"{token}\n")
+
         else:
-
-            if total_guilds == "verify":
-                tprint(f"{Fore.LIGHTWHITE_EX}[{Fore.RED}!{Fore.LIGHTWHITE_EX}] Unverified [{Fore.RED}{token}{Fore.LIGHTWHITE_EX}]")               
-                open("output/verify.txt","a", encoding='utf-8').write(f"{token}\n")
-
-            else:
-                tprint(f"{Fore.LIGHTWHITE_EX}[{Fore.RED}!{Fore.LIGHTWHITE_EX}] Invalid [{Fore.RED}{token}{Fore.LIGHTWHITE_EX}]")               
-                open("output/unauthorized.txt","a", encoding='utf-8').write(f"{token}\n")
+            tprint(f"{Fore.LIGHTWHITE_EX}[{Fore.RED}!{Fore.LIGHTWHITE_EX}] Invalid [{Fore.RED}{token}{Fore.LIGHTWHITE_EX}]")               
+            open("output/unauthorized.txt","a", encoding='utf-8').write(f"{token}\n")
 
                     
 if __name__ == "__main__":
@@ -176,28 +177,33 @@ if __name__ == "__main__":
     tokens = []
     threads = []
     thread_count = config['threads']
-    
-       
+
+
     for file in ["unauthorized.txt","underminservers.txt","verify.txt","lq.txt","uhq.txt","mq.txt","guild_ids.txt"]:
         open(f"./output/{file}", "w", encoding="utf8").close() 
 
 
     with open("./input/tokens.txt", encoding="utf-8") as file:  
-        for token in file.readlines():
+        for token in file:
             raw_token = token
 
             if ":" in raw_token:
                 raw_token = raw_token.split(":")
-                for item in raw_token:
-                    if re.match(r"(mfa\.[\w-]{84}|[\w-]{24}\.[\w-]{6}\.[\w-]{38}|[\w-]{24}\.[\w-]{6}\.[\w-]{27}|[\w-]{26}\.[\w-]{6}\.[\w-]{38})", item):
-                        tokens.append(item.strip())
+                tokens.extend(
+                    item.strip()
+                    for item in raw_token
+                    if re.match(
+                        r"(mfa\.[\w-]{84}|[\w-]{24}\.[\w-]{6}\.[\w-]{38}|[\w-]{24}\.[\w-]{6}\.[\w-]{27}|[\w-]{26}\.[\w-]{6}\.[\w-]{38})",
+                        item,
+                    )
+                )
             else:
                 tokens.append(raw_token.replace('\n',''))
             try:
                 token
             except:
                 continue  
-    
+
     threading.Thread(target = cpm_counter, daemon=True).start()
     threading.Thread(target = update_title, daemon=True).start()
 
@@ -206,9 +212,9 @@ if __name__ == "__main__":
         threads.append(t)
         t.start()
 
-    list(i.join() for i in threads)
-        
-    
+    [i.join() for i in threads]
+            
+
     input(f"{Fore.LIGHTWHITE_EX}[{Fore.GREEN}+{Fore.LIGHTWHITE_EX}] Finished.")
 
 
